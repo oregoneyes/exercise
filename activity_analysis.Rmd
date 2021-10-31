@@ -1,0 +1,168 @@
+---
+title: Activity Report
+author: "Rusell Glynn"
+date: "10/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 1. Read in dataset and process data
+
+```{r libraries}
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(lubridate)
+library(naniar)
+# read in data
+
+rawexdata <- read.csv('activity.csv')
+
+# remove NAs and convert date to factor
+
+exdata <- rawexdata %>% filter(steps != 'NA')
+exdata$date <- as.factor(ymd(exdata$date))
+#exdata$interval <- factor(exdata$interval)
+
+```
+
+### 2. Create histogram of the total number to steps taken per day
+
+```{r histogram, warning= F}
+
+stepsperday <- exdata %>% group_by(date) %>% summarize(total_steps = sum(steps))
+ggplot(stepsperday, aes(total_steps)) +
+    geom_histogram()
+
+```
+
+### 3. Mean and median number of steps per day
+
+```{r }
+
+stepsperday %>% summarize(mean = mean(total_steps),
+                          median =  median(total_steps))
+
+```
+
+### 4. Time series plot of the average number of steps taken
+
+```{r}
+meaninterval <- exdata %>% group_by(interval) %>% summarize(mean = mean(steps))
+str(meaninterval)
+ggplot(meaninterval, aes(interval, mean)) +
+    geom_point() +
+    ggtitle('Average Number of Steps During Each Time Interval') +
+    xlab('interval minutes') +
+    ylab('interval steps')
+
+```
+
+### 5. The 5-minute interval that, on average, contains the maximum nummber of steps
+
+```{r}
+
+maxinterval <- meaninterval %>% filter(mean == max(mean))
+maxinterval$interval
+
+```
+
+### Find missing values in a data
+
+```{r}
+
+missingdata <- apply(is.na(rawexdata), 2, sum)
+missingdata
+
+```
+All of the missing data are located in the steps variable.
+
+Looking at the missing data to determine which intervals have missing data, we create a missing variable summary report (missdata).
+
+```{r}
+missdata <- rawexdata %>% group_by(interval) %>% select(interval, steps) %>% miss_var_summary()
+head(missdata)
+unique(missdata$n_miss)
+
+```
+It looks like every interval has exactly 8 missing values in the steps variable.
+
+We can look at the number of consecutive rows are missing steps data?
+
+```{r }
+
+rawexdata$date <- as.factor(ymd(rawexdata$date))
+missdatarun <- rawexdata %>% group_by(interval) %>%
+    select(interval, steps) %>% miss_var_run(steps)
+sumrun <- missdatarun %>% summary
+sumrun
+
+boxplot(missdatarun$run_length)
+```
+
+We can see that the median missing run length is 2. However, we have two outliers at 23 and 15 with a median of 2.
+
+### Devise a strategy for filling in all of the missing values in the dataset.
+
+We will impute the missing values in the dataset by using the median or each interval. We will store the data in a new dataset called imputerawexdata.
+
+```{r imputing}
+
+# imputing by median of interval
+
+navector <- which(is.na(rawexdata))
+
+medianinterval <- rawexdata %>% group_by(interval) %>% summarise(median = median(steps, na.rm = T))
+imputerawexdata <- rawexdata
+getmedian <- function(x) {
+    y <-which(medianinterval$interval == x)
+    intsteps <- medianinterval[y,2]
+}
+
+for(i in seq_along(navector)) {
+    y = navector[i]
+    z <- rawexdata[y,3]
+    q <- getmedian(as.numeric(z))
+    imputerawexdata[y,1] <- q
+}
+
+```
+### Create a histogram of imputed data total steps per day. Report the mean and median total steps per day using this new dataset.
+
+```{r imputed}
+
+stepsperday <- imputerawexdata %>% group_by(date) %>% summarize(total_steps = sum(steps))
+ggplot(stepsperday, aes(total_steps)) +
+    geom_histogram()
+
+```
+
+Mean and median of the new dataset:
+
+```{r}
+stepsperday %>% summarize(mean = mean(total_steps),
+                          median =  median(total_steps))
+```
+The mean is considerably lower than the previously calculated mean with NAs excluded. The median is only slightly lower.
+
+```{r}
+imputerawexdata$date <- as.Date(imputerawexdata$date)
+imputerawexdata <- imputerawexdata %>% mutate(weekday = weekdays(date))
+days <- imputerawexdata %>% group_by(weekday) %>% summarize(total_steps = sum(steps))
+imputerawexdata <- imputerawexdata %>% 
+    mutate(day_type = ifelse(weekday %in% c('Saturday', 'Sunday'),'weekend','weekday'))
+imputerawexdata$day_type <- as.factor(imputerawexdata$day_type)
+str(imputerawexdata)
+imputerawexdata %>% ggplot(aes(interval, steps)) +
+    geom_line() +
+     facet_grid(day_type ~ .)
+
+
+```
+
+
+                                         ```
