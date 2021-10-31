@@ -71,7 +71,7 @@ maxinterval$interval
 
 ```
 
-### Find missing values in a data
+### Code to describe missing data
 
 ```{r}
 
@@ -91,7 +91,7 @@ unique(missdata$n_miss)
 ```
 It looks like every interval has exactly 8 missing values in the steps variable.
 
-We can look at the number of consecutive rows are missing steps data?
+We can look at the number of consecutive rows are missing steps data.
 
 ```{r }
 
@@ -148,6 +148,8 @@ stepsperday %>% summarize(mean = mean(total_steps),
                           median =  median(total_steps))
 ```
 The mean is considerably lower than the previously calculated mean with NAs excluded. The median is only slightly lower.
+
+### Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends.
 
 ```{r}
 imputerawexdata$date <- as.Date(imputerawexdata$date)
